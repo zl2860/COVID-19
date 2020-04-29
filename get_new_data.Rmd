@@ -1,0 +1,191 @@
+---
+title: "get_new_data"
+author: "Zongchao Liu"
+date: "4/28/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+# 定义需要用到的函数
+```{r}
+#############################################################
+# 定义一个函数：先选定一个国家，提取数据，然后把日期转换为天数
+date_to_day = function(df,country_name){
+  df_country = df %>%
+    filter(country_region == country_name) %>% #选出这个地区的数据
+    group_by(date) %>% 
+    summarise(cases = sum(confirmed_cases)) %>% # 按日期求累积cases的和，得出每天整个国家的累积cases
+    arrange(date) #按日期排序
+  
+  start_day = which(df_country$cases!=0)[1] # 第一次出现感染的日期对应的行数
+  start_date = df_country$date[start_day] # 第一次感染的日期
+  df_country = df_country[start_day:nrow(df_country),] %>%
+    mutate(days_since_spread = c(1:nrow(.)),
+           usage = ifelse(date <= as.Date("2020-03-23"), "fitted", "predict")) # 创建logistic curve 里的t
+  
+  return(list(start_date = start_date,
+              df_country = df_country,
+              country.name = country_name))  
+} # 返回spread date & 从那一天起感染的数据 & 国家名（用df_country来优化）
+#############################################################
+
+
+#logistic curve 用来预测未来的cases
+log_curv <- function(x, para){
+  a = para[1]
+  b = para[2]
+  c = para[3]  
+  return(a/(1 + exp(-b * (x - c))))
+}
+
+#检查数据
+check_df = function(df){
+  if(sum(df$cases == min(df$cases))>=10|sum(df$cases == min(df$cases)+1)>=10|sum(df$cases == min(df$cases)+2) >= 10){
+    return(TRUE) #垃圾数据，需要裁剪
+  }else{
+    return(FALSE)
+  }
+}
+
+#定义一个函数，先检测数据的分布，然后决定是否裁剪。如果早期有很多没有增长的点，则进行裁剪再丢进optimizer，否则可以直接丢进去
+df.modifier = function(df){
+  if(check_df(df) == TRUE){
+    if(sum(df$cases == min(df$cases))>=10){
+      s = sum(df$cases == min(df$cases))
+      slicing_index = s - 3
+      df = df %>% .[-c(1:slicing_index),] %>% mutate(days_since_spread = 1:nrow(.))
+    #重新改日子了免得影响拟合
+      return(df)
+    }else{
+        return(df)
+      }
+    #if(sum(df$cases == min(df$cases)+1)>=10){s = sum(df$cases == min(df$cases))+1}
+    #if(sum(df$cases == min(df$cases)+2)>=10){s = sum(df$cases == min(df$cases))+2}
+  }else{
+    return(df)
+  }
+}
+```
+
+
+#读取需要的文件
+```{r}
+path = './csse_covid_19_data/csse_covid_19_daily_reports'
+files.csv = list.files(path)
+files.csv = files.csv[63:length(files.csv)-1]
+
+read.data = function(file_list){
+  data = data.frame()
+  for (file in file_list){
+    #print(str_sub(file,end = 5))
+    df = read_csv(str_c(path,"/",file)) %>% select(Country_Region,Province_State,Confirmed) %>% mutate(date = str_sub(file,end = 5))
+    data = rbind(data,df)
+  }
+  return(data)
+}
+
+# 读取拟合的参数
+data.parameters = read_csv('./parameters_0427.csv') #
+#用旧的就读取'./parameters_0427.csv'
+
+```
+
+
+```{r,message=FALSE,warning=FALSE}
+#整理数据，变成之前的格式
+datanew = read.data(files.csv) %>% mutate(date = str_c("2020-",date),
+                                          date = as.Date(date)) %>%
+  rename("Confirmed_cases" = "Confirmed") %>% janitor::clean_names() %>%
+  mutate(usage = "predict")
+
+#拟合的144个国家list
+country = data.parameters$country
+
+# 只提取之前拟合过的国家，计算cumulative cases
+datanew = datanew %>%
+  filter(country_region %in% country)
+
+# 读取用来拟合参数的数据
+dataold = read_csv('./dataold.csv') %>%
+  mutate(usage = "fitted") %>%
+  select(names(datanew))
+
+# 合并新旧数据
+data.combined = rbind(dataold,datanew)
+write.csv(data.combined,"data.combined.csv")
+```
+
+
+# 提取数据
+
+```{r}
+# 检查一下能不能用
+date_to_day(data.combined,sample(country,1))
+```
+
+# 用新旧数据来看拟合效果
+
+```{r}
+country
+plot_for_country = function(country.each){
+  df = df.modifier(date_to_day(data.combined,country.each)$df_country)
+  para = data.parameters %>% filter(country == country.each) %>% select(2:4) %>% as.matrix() %>% as.numeric()
+  df %>%
+  ggplot(aes(x = df$days_since_spread, y = df$cases)) + 
+  geom_point() +
+  geom_line(aes(x = df$days_since_spread, y = log_curv(df$days_since_spread,para))) +
+  geom_vline(xintercept = max(which(df$usage == "fitted"))-1) +
+  theme_bw() +
+  labs(title = country.each) +
+  theme(plot.title = element_text(hjust = .5))
+}
+
+
+country.each =sample(country,1)
+#df = date_to_day(data,country.each)
+#k.estimate()
+
+plot_for_country(country.each)
+
+#dir.create("./plots_new")
+#dir.create("./plots_old")
+# plot for all countries
+#for (country.each in country) {
+#  plot_for_country(country.each)
+#  ggsave(filename = str_c(country.each,".png"), path = "./plots_old", device = #png,width = 400,height = 200,limitsize = F)
+#}
+```
+
+# plot all the paras_new (1~4月数据拟合的曲线)
+
+```{r,message=FALSE}
+library(plot3D)
+#scatter3D(log(data.parameters$c),log(data.parameters$b),log(data.parameters$a))
+
+
+# Create a scatter plot
+#白色
+scatter3D(log(data.parameters$c),log(data.parameters$b),log(data.parameters$a), phi = 0, bty = "b2", pch = 16, cex = 0.5,main = "Parameters for 144 Countries", xlab = "Mid-Point",
+          ylab ="Growth Rate", zlab = "Upper Bound",clab = c("Upper Bound (a)"),
+    ticktype = "detailed", theta = 40, d = 5)
+## Add text
+#text3D(log(data.parameters$a),log(data.parameters$b),log(data.parameters$c),labels = #data.parameters$country,
+#        add = TRUE, colkey = FALSE, cex = 0.1)
+#黑色
+scatter3D(log(data.parameters$c),log(data.parameters$b),log(data.parameters$a), phi = 0, bty = "bl", pch = 20, cex = 0.5,main = "Parameters for 144 countries", xlab = "Mid-Point",ylab ="Growth Rate", zlab = "Upper Bound",clab = c("Upper Bound (a)"))
+#灰色
+scatter3D(log(data.parameters$c),log(data.parameters$b),log(data.parameters$a), phi = 0, bty = "bl2", pch = 20, cex = 0.5,main = "Parameters for 144 countries", xlab = "Mid-Point",
+          ylab ="Growth Rate", zlab = "Upper Bound",clab = c("Upper Bound (a)"))
+#“b”, “b2”, “f”, “g”, “bl”, “bl2”, “u”, “n”
+
+#library(lattice)
+#cloud(a ~ b + c, data = data.parameters, screen =list(z = 10, x = -20), dist = 0)
+#cloud(a ~ b + c, data = data.parameters, screen =list(z = 10, x = 30), dist = 0)
+#cloud(a ~ b + c, data = data.parameters, screen =list(y = 10, x = 20), dist = 0)
+#cloud(a ~ b + c, data = data.parameters, screen =list(z = 80, x = 30), dist = 0)
+```
+
