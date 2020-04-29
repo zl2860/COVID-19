@@ -14,7 +14,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## 2.1 Dataset
 
-In this project, we use two sets of data to fit the logistic curves. The first dataset includes cumulative COVID-19 cases from Jan 21 to March 23 in 144 countries where cases have been confirmed. The second dataset contains similar data points of cumulative cases in the 144 countries from Jan 21 to Apr 27. Both of the datasets were derived by reorganizing the original data sources from https://github.com/CSSEGISandData/COVID-19. By implementing optimization algorithms on the data of a specific country(region), we obtain the parameters of the logistic curve for that country(region).
+In this project, we use two sets of data to fit the logistic curves. The first dataset includes cumulative COVID-19 cases from Jan 21 to March 23 in different regions where cases have been confirmed. The second dataset contains similar data points of cumulative cases in the regions from Jan 21 to Apr 27. Both of the datasets were derived by reorganizing the original data sources from https://github.com/CSSEGISandData/COVID-19. By implementing optimization algorithms on the data of a specific region, we obtain the parameters of the logistic curve for that region.
 
 ## 2.2 Logistic Curve Model
 
@@ -113,40 +113,56 @@ Step 3: new estimates is updated by formula (2.8), $\alpha = \alpha/2$ and i = i
 
 ## Obtainded parameters
 
-For most of the regions in the first dataset, since they do not reach the mid-point, the upper bound estimates might be severely biased, resulting in a bad fitted curve. To confirm whether logistic curve is suitable for modeling the spread, we also take the second dataset into account. We finally obtained two sets of parameters(`Parameters_1` for the first data and `Parameters_2` for the second) of the model by implementing optimization algorithms on both the first and second dataset(**Figure 1**). The parameters were scaled by taking a natural log. The obtained parameters were then used for clustering later.
+For most of the regions in the first dataset, since they do not reach the mid-point, the upper bound estimates might be severely biased, resulting in a bad fitted curve. To confirm whether logistic curve is suitable for modeling the spread, we also take the second dataset into account. We finally obtained two sets of parameters(`Parameters_1` for the first dataset and `Parameters_2` for the second) of the model by implementing optimization algorithms on both the first and second dataset(**Figure 1**). The parameters were scaled by taking a natural log. The obtained parameters were then used for clustering later.
 
-![Fig 2](./paras.plot/para.old.png)![Fig 2](./paras.plot/000069.png)
+![Fig 1](./paras.plot/para.old.png){ width=50% }
+![Fig 1](./paras.plot/paras.new.png){ width=50% }
 
+\centerline{Figure 1 Parameters for 144 regions}
 
 ## Results from `Parameters_1`
 
-Initially, we use the first dataset(including cases from Jan 21 to Mar 23) to fit the curves and the second dataset(including cases from Jan 21 to APR 27) to check the predictive ability of the curves. For the first dataset, we assume there exists different scenarios under which a logistic curve would or would not be a good choice for prediction. For example, whether mid-point occurs or not is closely related to the performance of the curve.
+Initially, we use the first dataset(including cases from Jan 21 to Mar 23) to fit the curves and the second dataset(including cases from Jan 21 to APR 27) to check the predictive ability of the curves. For the first dataset, we assume that whether mid-point occurs or not is closely related to the performance of the curve.
 
-It has been reported that during the early stage of January and Febulary in 2020, there were not many countries(regions) showing a trend that the virus began spreading. In these regions, the number of cases is almost stationary at the beginning and starts increasing 10 or more days after the first case has been confirmed. Obiviously, these regions have not reached the mid-point of the spreading. This situation might bring a problem to analysis: The trend for some of the data points for fitting curves are flattened, resulting in a strong bias of upper bound estimates. **Figure 2** shows a series of regions that have the situation mendtioned above. The vertical line in **Figure 2** indicates the cut-point of dates. We used the points in the left side of the vertical line to fit the curves and the points in the right side to see if the curves predict the future effectively. 
+It has been reported that during the early stage of January and Febulary in 2020, there were not many countries(regions) showing a trend that the virus began spreading. In these regions, the number of cases is almost stationary at the beginning and starts increasing 10 or more days after the first case has been confirmed. Obviously, these regions have not reached the mid-point of the spreading. This situation might bring a problem to analysis: The trend for some of the data points for fitting curves are flattened, resulting in a strong bias of upper bound estimates. **Figure 2** shows a series of regions that have the situation mendtioned above. The vertical line in **Figure 2** indicates the cut-off point of dates. We used the points in the left side of the vertical line to fit the curves and the points in the right side to see if the curves predict the future effectively. 
 
 
-![Fig 2](./plots_old/Russia.png)![Fig 2](./plots_old/US.png)![Fig 2](./plots_old/Qatar.png)
+![Fig 2](./plots_old/Russia.png){ width=35% }
+![Fig 2](./plots_old/US.png){ width=35% }
+![Fig 2](./plots_old/Qatar.png){ width=35% }
 
-By checking the data, we found that only China has reached the mid-point within the period given in the first dataset, approching the end of spread. This suggests that the curves for a region will be a perfect fit When that region has reached the mid-point, as shown by the fitted curve for China(**Figure 3**):
+\centerline{Figure 2 Regions not reaching mid-point}
+
+By checking the data, we found that only China has reached the mid-point within the period given in the first dataset, approching the end of spread. This suggests that the curves for a region will be a perfect fit when that region has reached the mid-point, as shown by the fitted curve for China(**Figure 3**):
 
 ![Fig 3](./plots_old/China.png)
+
+\centerline{Figure 3 Cumulative Cases in China}
 
 There are also some other regions that have extremely irregular cases distribution during the given time point. **Figure 4** shows the examples of such regions. The number of cumulative cases dropped in these regions, which should be impossible. There may be some reasons related to the data collection process.
 Under this situation, logistic curve might or might not be an effective good choice for future prediction. While a bad fit to the training set might be due to inadequate data or other reasons, a relatively good training fit might not ensure a correct prediction for the future cases.
 
-![Fig 4](./plots_old/Iceland.png)![Fig 4](./plots_old/Mauritius.png)
+![Fig 4](./plots_old/Iceland.png){ width=50% }
+![Fig 4](./plots_old/Mauritius.png){ width=50% } 
+
+\centerline{Figure 4 Regions with irregular cases distribution}
 
 By analyzing the growth rates estimated from the first dataset, we found that the top 8 regions with the highest growth rate are Uzbekistan, Turkey, Montenegro, Togo, Venezuela, Andorra, Mauritius, Holy See. However, as mentioned above, these estimates were highly likely obatined based on a biased upper bound. A more credible growth rates estimation would be based on the second dataset because the many regions in this dataset reached the mid-point. The top 8 regions with the highest growth rate then become Martinique, Montenegro, Turkey, Uzbekistan, Djibouti, US, Russia, Brazil(**Figure 5**).
 
-![Fig 5](./reportplots/growthrate.png)!
+![Fig 5](./reportplots/growthrate.png)
+
+\centerline{Figure 5 Top 8 growth rates}
 
 ## Results from `Parameters_2`
 
 By using the second dataset for analysis, we mainly focus on answering if the logistic curve is a reasonable model for fitting the curmulative cases and predicting future new cases. **Figure 6** shows the
 curves fitted for the regions in **Figure 1** but from the second dataset. Obviously, the curves fit better as these regions all reached mid-point in the second dataset. This may imply the spread follows a logistic curve. However, based on the results from the two sets of parameters, we may conclude that the performance of the logistic curve heavily depends on the estimation of upper bound. Although several methods have been posted for estimating upper bound, it is still difficult to get the correct answer if the true mid-point does not occur in the data. The occurrence of mid-point is closely related to many other aspects such as policies and population health status.
 
-![Fig 6](./plots_new/Russia.png)![Fig 6](./plots_new/US.png)![Fig 6](./plots_new/Qatar.png)
+![Fig 6](./plots_new/Russia.png){ width=35% }
+![Fig 6](./plots_new/US.png){ width=35% }
+![Fig 6](./plots_new/Qatar.png){ width=35% }
 
+\centerline{Figure 6 Curves fitted with the full data}
 
 
 
